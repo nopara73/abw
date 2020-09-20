@@ -6,12 +6,10 @@ using WalletWasabi.JsonConverters;
 
 namespace WalletWasabi.CoinJoin.Common.Models
 {
-	public class ConnectionConfirmationResponse
+	public class InputsRequest : InputsRequestBase
 	{
+		[Required, MinLength(1)]
 		[JsonProperty(ItemConverterType = typeof(Uint256JsonConverter))]
-		public IEnumerable<uint256> BlindedOutputSignatures { get; set; }
-
-		[Required]
-		public RoundPhase CurrentPhase { get; set; }
+		public IEnumerable<uint256> BlindedOutputScripts { get; set; }
 	}
 }

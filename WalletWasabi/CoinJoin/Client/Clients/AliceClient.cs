@@ -3,30 +3,31 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using WalletWasabi.CoinJoin.Common.Crypto;
 using static WalletWasabi.Crypto.SchnorrBlinding;
 
 namespace WalletWasabi.CoinJoin.Client.Clients
 {
-	public class AliceClient4 : AliceClientBase
+	public class AliceClient : AliceClientBase
 	{
-		internal AliceClient4(
+		internal AliceClient(
 			long roundId,
 			IEnumerable<BitcoinAddress> registeredAddresses,
-			IEnumerable<PubKey> signerPubKeys,
+			IEnumerable<SchnorrPubKey> schnorrPubKeys,
 			IEnumerable<Requester> requesters,
 			Network network,
 			Func<Uri> baseUriAction,
 			EndPoint torSocks5EndPoint)
 			: base(roundId, registeredAddresses, requesters, network, baseUriAction, torSocks5EndPoint)
 		{
-			SignerPubKeys = signerPubKeys.ToArray();
+			SchnorrPubKeys = schnorrPubKeys.ToArray();
 		}
 
-		public PubKey[] SignerPubKeys { get; }
+		public SchnorrPubKey[] SchnorrPubKeys { get; }
 
 		protected override PubKey GetSignerPubKey(int i)
 		{
-			return SignerPubKeys[i];
+			return SchnorrPubKeys[i].SignerPubKey;
 		}
 	}
 }
