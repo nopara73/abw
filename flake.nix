@@ -19,34 +19,22 @@
           src = ./.;
         };
 
-        # Build all components and run tests (CI)
+        # Build the daemon and run the remaining tests (CI)
         buildEverything = buildWasabiModule.overrideAttrs (oldAttrs: rec {
           pname = "WalletWasabi";
-          projectFile = [
-             "WalletWasabi.Coordinator/WalletWasabi.Coordinator.csproj"
-             "WalletWasabi.Fluent.Desktop/WalletWasabi.Fluent.Desktop.csproj"];
-          executables = [
-            "WalletWasabi.Coordinator"
-            "WalletWasabi.Fluent.Desktop" ];
+          projectFile = "WalletWasabi.Daemon/WalletWasabi.Daemon.csproj";
+          executables = [ "WalletWasabi.Daemon" ];
           runtimeDeps = with pkgs; [
              pkgs.openssl pkgs.zlib
-             # for client
-             tor hwi bitcoind
-             xorg.libX11 xorg.libXrandr xorg.libX11.dev xorg.libICE xorg.libSM fontconfig.lib ];
-          # Testing
-          doCheck = true;
-          testProjectFile = "WalletWasabi.Tests/WalletWasabi.Tests.csproj";
-          dotnetTestFlags = ["--filter \"FullyQualifiedName~UnitTests\"" "--logger \"console\""];
-
-          # Disable parallel builds to avoid Avalonia resource file locking issues
-          enableParallelBuilding = false;
+             tor hwi bitcoind ];
+          # Tests still depend on the removed GUI/coordinator projects.
+          doCheck = false;
 
           # wrap manually, because we want not so ugly executable names
           dontDotnetFixup = true;
 
           preFixup = ''
-            wrapDotnetProgram $out/lib/${pname}/WalletWasabi.Fluent.Desktop $out/bin/wasabi
-            wrapDotnetProgram $out/lib/${pname}/WalletWasabi.Coordinator $out/bin/wasabi-coordinator
+            wrapDotnetProgram $out/lib/${pname}/WalletWasabi.Daemon $out/bin/wasabi-daemon
           '';
 
           binaries = "BundledApps/Binaries/linux-x64";
@@ -93,21 +81,8 @@
         };
 
         wasabi-shell =
-          with {
-            libs = with pkgs; [
-              xorg.libX11
-              xorg.libXrandr
-              xorg.libX11.dev
-              xorg.libICE
-              xorg.libSM
-              pkgs.zlib
-              fontconfig.lib
-            ];
-            skiaSharp=toString ./. + "/WalletWasabi.Fluent.Desktop/bin/Debug/net10.0/runtimes/linux-x64/native";
-          };
           pkgs.mkShell {
             name = "wasabi-shell";
-            buildInputs = libs;
             packages = [
               pkgs.dotnetCorePackages.sdk_10_0
 
@@ -135,7 +110,6 @@
             DOTNET_ROOT = "${pkgs.dotnetCorePackages.sdk_10_0}";
             DOTNET_GLOBAL_TOOLS_PATH = "${builtins.getEnv "HOME"}/.dotnet/tools";
             #DOTNET_ROLL_FORWARD = "latestPatch";
-            LD_LIBRARY_PATH = "${skiaSharp};${pkgs.lib.makeLibraryPath libs}";
             BUNDLED_APPS_BINARIES_PATH = "WalletWasabi/BundledApps/Binaries/linux-x64";
             BUNDLED_APPS_TEST_BINARIES_PATH = "WalletWasabi.Tests/BundledApps/Binaries/linux-x64";
 

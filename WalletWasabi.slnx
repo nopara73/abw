@@ -20,18 +20,9 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="WalletWasabi.Client/WalletWasabi.Client.csproj" />
-  <Project Path="WalletWasabi.Coordinator/WalletWasabi.Coordinator.csproj" />
   <Project Path="WalletWasabi.Daemon/WalletWasabi.Daemon.csproj" />
-  <Project Path="WalletWasabi.Fluent.Desktop/WalletWasabi.Fluent.Desktop.csproj" />
-  <Project Path="WalletWasabi.Fluent.Generators/WalletWasabi.Fluent.Generators.csproj" />
-  <Project Path="WalletWasabi.Fluent/WalletWasabi.Fluent.csproj" />
   <Project Path="WalletWasabi.Tests/WalletWasabi.Tests.csproj">
     <BuildType Solution="Release|x64" Project="Debug" />
-  </Project>
-  <Project Path="WalletWasabi.WindowsInstaller/WalletWasabi.WindowsInstaller.wixproj">
-    <BuildType Solution="Debug|x64" Project="Release" />
-    <Platform Project="x64" />
-    <Build Solution="Release|x64" />
   </Project>
   <Project Path="WalletWasabi/WalletWasabi.csproj">
     <BuildType Solution="Release|x64" Project="Debug" />
