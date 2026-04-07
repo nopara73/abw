@@ -1,12 +1,6 @@
 ### bitcoin wallet for agents. open-source. non-custodial. privacy-focused.
 
-  
-
-
 # abw - "agentic bitcoin wallet"
-
-  
-
 
 # build from source code
 

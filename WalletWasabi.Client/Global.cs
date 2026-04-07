@@ -293,7 +293,7 @@ public class Global
 		{
 			if (isIndexDisabled)
 			{
-				throw new Exception("\nWasabi is connected to a bitcoin RPC that doesn't provides compact filters (BIP158)."
+				throw new Exception("\nabw is connected to a bitcoin RPC that doesn't provides compact filters (BIP158)."
 								+ "\nCompact filters are disabled by default in Bitcoin and you have to enable them."
 								+ "\nIf you are using your own node then edit the bitcoin.conf file and add the line:"
 								+ "\nblockfilterindex=1"
@@ -318,7 +318,7 @@ public class Global
 		var (pause, resume, serviceLoop) =
 			Continuously(Synchronizer.CreateFilterGenerator(filtersProvider, BitcoinStore, EventBus));
 
-		Spawn("Synchronizer", Service("Wasabi Index-Based Synchronizer", serviceLoop), cancellationToken)
+		Spawn("Synchronizer", Service("abw index-based synchronizer", serviceLoop), cancellationToken)
 			.DisposeUsing(_disposables);
 
 		EventBus.Subscribe<RpcStatusChanged>(e =>
@@ -367,7 +367,7 @@ public class Global
 		Uri[] relayUrls = [new ("wss://relay.primal.net"), new("wss://nos.lol"), new("wss://relay.damus.io")];
 		var nostrClientFactory = () => NostrClientFactory.Create(relayUrls, TorSettings.SocksEndpoint);
 
-		// The feature is disabled on linux at the moment because we install Wasabi Wallet as a Debian package.
+		// The feature is disabled on linux at the moment because the daemon is distributed as a Debian package.
 		var installerDownloader = !Config.DownloadNewVersion
 			? ReleaseDownloader.AutoDownloadOff()
 			: RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && !PlatformInformation.IsDebianBasedOS()
@@ -375,7 +375,7 @@ public class Global
 				: ReleaseDownloader.ForOfficiallySupportedOSes(ExternalSourcesHttpClientFactory, EventBus);
 
 		var wasabiVersionUpdater = Spawn("UpdateManager",
-			Service("Wasabi Version AutoUpdater",
+			Service("abw version autoupdater",
 				Periodically(
 					TimeSpan.FromHours(12),
 					Unit.Instance,

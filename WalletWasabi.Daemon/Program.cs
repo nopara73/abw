@@ -12,7 +12,7 @@ public class Program
 	public static async Task<int> Main(string[] args)
 	{
 		var app = WasabiAppBuilder
-			.Create("Wasabi Daemon", args)
+			.Create("abw daemon", args)
 			.EnsureSingleInstance()
 			.OnUnhandledExceptions(LogUnhandledException)
 			.OnUnobservedTaskExceptions(LogUnobservedTaskException)

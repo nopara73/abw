@@ -1,8 +1,7 @@
-Wasabi Daemon
-=============
+abw daemon
+==========
 
-Wasabi daemon is a _headless_ Wasabi wallet designed to minimize the usage of resources (CPU, GPU, Memory, Bandwidth) with the goal of
-making it more suitable for running all the time in the background.
+abw daemon is a _headless_ bitcoin wallet for agents designed to minimize resource usage (CPU, GPU, memory, bandwidth) so it can run continuously in the background.
 
 ## Configuration
 
@@ -34,36 +33,36 @@ There are a few special switches that are not present in the `Config.json` file 
 
 * **LogLevel** to specify the level of detail used during logging
 * **DataDir** to specify the path to the directory used during runtime.
-* **BlockOnly** to instruct wasabi to ignore p2p transactions
-* **Wallet** to instruct wasabi to open a wallet automatically after started.
+* **BlockOnly** to instruct abw to ignore p2p transactions
+* **Wallet** to instruct abw to open a wallet automatically after startup.
 
 ### Examples
 
-Run Wasabi and connect to the testnet Bitcoin network with Tor disabled and accept JSON RPC calls. Store everything in `$HOME/temp/wasabi-1`.
+Run `abw daemon` on testnet with Tor disabled and JSON RPC enabled. Store everything in `$HOME/temp/abw-1`.
 
 ```bash
-$ wasabi.daemon --usetor=false --datadir="$HOME/temp/wasabi-1" --network=testnet --jsonrpcserverenabled=true --blockonly=true
+$ dotnet run -- --usetor=false --datadir="$HOME/temp/abw-1" --network=testnet --jsonrpcserverenabled=true --blockonly=true
 ```
 
-Run Wasabi Daemon and connect to the testnet Bitcoin network.
+Run `abw daemon` and connect to the testnet Bitcoin network.
 
 ```bash
-$ WASABI_NETWORK=testnet wasabi.daemon
+$ WASABI_NETWORK=testnet dotnet run --
 ```
 
-Run Wasabi and open two wallets: AliceWallet and BobWallet
+Run `abw daemon` and open two wallets: `AliceWallet` and `BobWallet`.
 
 ```bash
-$ wasabi.daemon --wallet=AliceWallet --wallet=BobWallet
+$ dotnet run -- --wallet=AliceWallet --wallet=BobWallet
 ```
 
 ### Version
 
 ```bash
-$ wasabi.daemon --version
-Wasabi Daemon 2.0.3.0
+$ dotnet run -- --version
+abw daemon 2.0.3.0
 ```
 
 ### Usage
 
-To interact with the daemon, use the [RPC server](https://docs.wasabiwallet.io/using-wasabi/RPC.html) or the [wcli script](https://github.com/WalletWasabi/WalletWasabi/tree/master/Contrib/CLI).
+To interact with the daemon, use the JSON-RPC server or the local [`Contrib/CLI`](../Contrib/CLI/README.md) helper scripts.

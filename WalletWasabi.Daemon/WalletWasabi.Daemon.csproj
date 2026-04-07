@@ -10,21 +10,21 @@
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<Authors>zkSNACKs Ltd</Authors>
-		<Company>zkSNACKs Ltd</Company>
+		<Authors>abw contributors</Authors>
+		<Company>abw</Company>
 		<NeutralLanguage>en-US</NeutralLanguage>
-		<AssemblyTitle>Wasabi Wallet Daemon</AssemblyTitle>
+		<AssemblyTitle>abw daemon</AssemblyTitle>
 		<Description>
-			Open-source, non-custodial, privacy focused Bitcoin wallet for Windows, Linux, and Mac. Built-in Tor, coinjoin, payjoin and coin control features.
+			bitcoin wallet for agents. open-source. non-custodial. privacy-focused.
 		</Description>
 		<Copyright>MIT</Copyright>
-		<PackageId>WalletWasabi.Daemon</PackageId>
+		<PackageId>abw-daemon</PackageId>
 		<PackageTags>bitcoin-wallet;privacy;bitcoin;dotnet;nbitcoin;cross-platform;zerolink;wallet;wabisabi;coinjoin;tor</PackageTags>
-		<PackageProjectUrl>https://github.com/WalletWasabi/WalletWasabi/</PackageProjectUrl>
-		<PackageLicenseUrl>https://github.com/WalletWasabi/WalletWasabi/blob/master/LICENSE.md</PackageLicenseUrl>
+		<PackageProjectUrl>https://github.com/nopara73/abw/</PackageProjectUrl>
+		<PackageLicenseUrl>https://github.com/nopara73/abw/blob/master/LICENSE.md</PackageLicenseUrl>
 		<RepositoryType>git</RepositoryType>
-		<RepositoryUrl>https://github.com/WalletWasabi/WalletWasabi/</RepositoryUrl>
-		<Product>Wasabi Wallet Daemon</Product>
+		<RepositoryUrl>https://github.com/nopara73/abw/</RepositoryUrl>
+		<Product>abw daemon</Product>
 	</PropertyGroup>
 
 	<ItemGroup>

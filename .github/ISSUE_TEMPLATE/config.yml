@@ -1,11 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 📃 User documentation
-    url: https://docs.wasabiwallet.io/
-    about: Search for any information about Wasabi.
-  - name: 💪 Community support
-    url: https://github.com/WalletWasabi/WalletWasabi/discussions/categories/support
-    about: Feel free to ask anything.
-  - name: ❓ Other issue?
-    url: https://github.com/WalletWasabi/WalletWasabi/discussions/
-    about: Search on the community forum.
+  - name: Project README
+    url: https://github.com/nopara73/abw#readme
+    about: Start with the daemon-focused project overview and build instructions.
+  - name: Discussions
+    url: https://github.com/nopara73/abw/discussions
+    about: Ask questions, share ideas, or start a broader conversation.
