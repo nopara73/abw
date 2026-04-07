@@ -1,4 +1,4 @@
-## How to upgrade bundled Tor version in Wasabi Wallet
+## How to upgrade the bundled Tor version in abw
 
 ### Automatically
 

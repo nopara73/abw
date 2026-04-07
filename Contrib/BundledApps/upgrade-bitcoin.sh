@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #!nix-shell -i bash -p _7zz
 #
-# Downloads, extracts and upgrades bitcoind from Bitcoin Core archives for Wasabi Wallet
+# Downloads, extracts and upgrades bitcoind from Bitcoin Core archives for abw
 #
 # Requirements:
 #   - bash on linux or git bash on Windows
@@ -17,7 +17,7 @@ shopt -s extglob nullglob
 # ──────────────────────────────────────────────────────────────────────────────
 show_help() {
     cat << 'EOF'
-Downloads, extracts and upgrades bitcoind binaries from Bitcoin Core for Wasabi Wallet
+Downloads, extracts and upgrades bitcoind binaries from Bitcoin Core for abw
 
 Usage:
     ./upgrade-bitcoin-core.sh <version> [OPTIONS]

@@ -1,7 +1,6 @@
 # Ports
 
-A reference of common local ports used by Wasabi and related software.
-HiddenWallet's ports (3712x) are chosen within a long range of unassigned IANA ports, based on [this](https://stackoverflow.com/a/28369841/2061103) statistic, but also checked against [Service Name and Transport Protocol Port Number Registry](https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml).
+A reference of common local ports used by `abw`, Tor, and related Bitcoin software.
 
 | Port  | Application                                       |
 |-------|---------------------------------------------------|
@@ -11,14 +10,12 @@ HiddenWallet's ports (3712x) are chosen within a long range of unassigned IANA p
 | 37123 | NTumbleBit server                                 |
 | 37124 | Tor socks port used by NTumbleBit                 |
 | 37125 | Tor control port used by NTumbleBit               |
-| 37126 | Wasabi Wallet Coordinator                         |
-| 37127 | Wasabi Wallet Backend                             |
-| 37128 | Wasabi Wallet RPC Server                          |
-| 37129 | Wasabi Wallet Local Client TCPListener on MainNet |
-| 37130 | Wasabi Wallet Local Client TCPListener on TestNet |
-| 37131 | Wasabi Wallet Local Client TCPListener on RegTest |
-| 37150 | Tor socks port used by Wasabi Wallet              |
-| 37151 | Tor control port used by Wasabi Wallet            |
+| 37128 | abw JSON-RPC server                               |
+| 37129 | abw local client listener on MainNet              |
+| 37130 | abw local client listener on TestNet              |
+| 37131 | abw local client listener on RegTest              |
+| 37150 | Tor socks port used by abw                        |
+| 37151 | Tor control port used by abw                      |
 | 9050  | Default Tor socks port                            |
 | 9051  | Default Tor control port                          |
 | 9150  | Tor socks port used by Tor Browser                |

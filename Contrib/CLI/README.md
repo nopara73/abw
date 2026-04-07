@@ -1,13 +1,13 @@
-# Wasabi CLI
+# abw CLI
 
-A bash script for effortless interaction with the Wasabi RPC Server.
+A bash script for effortless interaction with the `abw` JSON-RPC server.
 
 USAGE:
 
 ```bash
 $ ./wcli.sh [-wallet=<WALLET-NAME>] command [ARGS,...]
 ```
-The supported RPC commands are listed in the [documentation](https://docs.wasabiwallet.io/using-wasabi/RPC.html).
+Run `./wcli.sh help` to inspect the available RPC commands exposed by the daemon.
 
 ## Examples
 

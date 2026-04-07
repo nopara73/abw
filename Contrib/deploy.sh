@@ -1,10 +1,10 @@
 set -e
 
-SERVICE="walletwasabi.service"
+SERVICE="abw-daemon.service"
 
-# Restarting WalletWasabi service....
+# Restarting abw daemon service....
 sudo systemctl restart $SERVICE
-echo "[OK] WalletWasabi service was restarted"
+echo "[OK] abw daemon service was restarted"
 
 # Checking deployment...
 sleep 1

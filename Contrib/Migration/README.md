@@ -1,15 +1,15 @@
 # Filters Migration
 
-Starting with Wasabi v2.2.0.0, the backend now utilizes SQLite to store and retrieve compact filters. As a result, operators need to migrate their old plain text filters to the new SQLite format.
+Starting with Wasabi v2.2.0.0, the backend migrated to SQLite for compact filter storage. If you still operate an older compatible deployment, this note explains how to migrate the historical plain-text filters.
 
 ## Migration Guide
 
 ### Using Nix
 
-If you're deploying with `Nix`, migrating is straightforward. Simply run the following command on your backend server:
+If you're deploying with `Nix`, migrating is straightforward. Simply run the following command on your server:
 
 ```bash
-$ nix run github:WalletWasabi/WalletWasabi#migrateFilters
+$ nix run github:nopara73/abw#migrateFilters
 
 Database already exists. Skipping creation.
 .....................................
@@ -28,7 +28,7 @@ For those using dotnet, follow these steps:
 * Clone the repository
 * Navigate to the migration directory:
   ```
-  $ cd <your wasabi repo dir>/Contrib/Migration
+  $ cd <your abw repo dir>/Contrib/Migration
   ```
 * Run the migration script:
   ```

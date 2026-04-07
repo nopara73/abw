@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #!nix-shell -i bash -p _7zz
 #
-# Downloads, extracts and upgrades Hardware Wallet Interface (HWI) binaries for Wasabi Wallet
+# Downloads, extracts and upgrades Hardware Wallet Interface (HWI) binaries for abw
 #
 # Requirements:
 #   - bash on linux or git bash on Windows
@@ -17,7 +17,7 @@ shopt -s extglob nullglob
 # ──────────────────────────────────────────────────────────────────────────────
 show_help() {
     cat << 'EOF'
-Downloads, extracts and upgrades Hardware Wallet Interface (HWI) binaries for Wasabi Wallet
+Downloads, extracts and upgrades Hardware Wallet Interface (HWI) binaries for abw
 
 Usage:
     ./upgrade-hwi.sh <version> [OPTIONS]

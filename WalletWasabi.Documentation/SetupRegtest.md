@@ -2,7 +2,7 @@
 
 ## What is RegTest?
 
-RegTest is a local network in which users can generate blocks and coins for testing. Running Indexer and Coordinator in RegTest allows you to emulate network events and observe how the Wasabi react on that. You don't need to download the blockchain.
+RegTest is a local network in which you can generate blocks and coins for testing. In this daemon-only repo, the practical local setup is `bitcoind` plus `WalletWasabi.Daemon` connected over RPC. You don't need to download the blockchain.
 
 ## Bitcoin Core Setup
 
@@ -71,72 +71,21 @@ RegTest is a local network in which users can generate blocks and coins for test
 
 You can force rebuilding the txindex with the `-reindex` command line argument. Bitcoin Core needs to be running during the next steps.
 
-# Wasabi Setup
+# abw daemon setup
 
-Here you will have to build from source, follow [these instructions here](https://github.com/WalletWasabi/WalletWasabi#build-from-source-code).
+Build from source using the repo `README.md`, then run the daemon against your local regtest node:
 
-## Indexer Setup
+```bash
+dotnet run --project WalletWasabi.Daemon -- \
+  --network=regtest \
+  --usetor=disabled \
+  --jsonrpcserverenabled=true \
+  --bitcoinrpcuri=http://127.0.0.1:18443/ \
+  --bitcoinrpccredentialstring=rpcuser:rpcpassword
+```
 
-1. Go to `WalletWasabi\WalletWasabi.Backend` folder.
-2. Open the command line and enter:
-`dotnet run`
-3. You will get some errors, but the data directory will be created.
-4. Stop the application if it is still running with CTRL-C.
-5. Go to the Indexer folder:
-    ```
-    Windows: "C:\Users\{your username}\AppData\Roaming\WalletWasabi\Backend"
-    macOS: "/Users/{your username}/.walletwasabi/backend"
-    Linux: "/home/{your username}/.walletwasabi/backend"
-    ```
-6. Edit these lines in `Config.json`:
-    ```
-      "Network": "RegTest",
-      "BitcoinRpcConnectionString": "rpcuser:rpcpassword",
-    ```
-7. Go to WalletWasabi.Backend folder.
-8. Open the command line and enter:
-`dotnet run`
-9. Wasabi.Backend is now running in RegTest network.
+Notes:
 
-## Coordinator Setup
-
-1. Go to `WalletWasabi\WalletWasabi.Coordinator` folder.
-2. Open the command line and enter:
-`dotnet run`
-3. You will get some errors, but the data directory will be created.
-4. Stop the application if it is still running with CTRL-C.
-5. Go to the Coordinator folder:
-    ```
-    Windows: "C:\Users\{your username}\AppData\Roaming\WalletWasabi\Coordinator"
-    macOS: "/Users/{your username}/.walletwasabi/coordinator"
-    Linux: "/home/{your username}/.walletwasabi/coordinator"
-    ```
-6. Edit these lines in `Config.json`:
-    ```
-    "Network": "RegTest",
-    "BitcoinRpcConnectionString": "rpcuser:rpcpassword",
-    "StandardInputRegistrationTimeout": "0d 0h 2m 0s",
-    "MinInputCountByRoundMultiplier": 0.02,
-    ```
-7. Go to WalletWasabi.Coordinator folder.
-8. Open the command line and enter:
-`dotnet run`
-9. Wasabi.Coordinator is now running in RegTest network
-
-## Client Setup
-
-1. Go to `WalletWasabi\WalletWasabi.Fluent.Desktop` folder.
-2. Open the command line and run the Wasabi Client with:
-`dotnet run`
-3. Go to Settings/Bitcoin and set the network to RegTest
-4. Close Wasabi and restart it with:
-`dotnet run`
-5. Generate a wallet in Wasabi named: R1.
-6. Generate a receive address in Wasabi, now go to Bitcoin Core to the Send tab.
-7. Send 1 BTC to that address.
-8. Generate a wallet in Wasabi named: R2.
-9. Generate a receive address in Wasabi, now go to Bitcoin Core to the Send tab.
-10. Send 1 BTC to that address.
-11. Now let the coinjoin happen automatically in both wallets.
-12. If you see `Waiting for confirmed funds` in the music box you can generate a block in Bitcoin Core to continue coinjoining:
-`generatetoaddress 1 <replace_new_address_here>`
+- this repo no longer ships separate backend, coordinator, or desktop GUI projects
+- local regtest wallet and RPC testing still work with the daemon
+- full local coinjoin/coordinator integration now requires extra external setup beyond this repo

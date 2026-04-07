@@ -1,659 +1,201 @@
 #!/usr/bin/env bash
 
-#------------------------------------------------------------------------------------#
-#  release.sh                                                                        #
-#                                                                                    #
-#  This script builds the `WalletWasabi.Fluent.Desktop` for all the supported        #
-#  platforms, creates the zips and tar.gz files for all of them and creates the .deb #
-#  package for Debian linux.                                                         #
-#                                                                                    #
-#  The automatic release process have to take these generated assets and upload them #
-#  to the CI assets repository so they can be used by other jobs that can generate   #
-#  and sign the installers for windows (win ci job) and generate and sign the one    #
-#  for macOS (osx job).                                                              #
-#------------------------------------------------------------------------------------#
-set -xe
+set -euo pipefail
 
-STASH_MESSAGE="Stashed changes for script execution"
-# Check if there are any uncommitted changes
-if [[ -n $(git status --porcelain) ]]; then
-  # Stash the changes
-  git stash push -m "$STASH_MESSAGE" --quiet
-fi
-
-# Get the latest Git tag
-LATEST_TAG=$(git describe --tags --abbrev=0)
-# Extract the version number (strip the first character)
-VERSION=${LATEST_TAG:1}
-SHORT_VERSION=${VERSION:0:${#VERSION}-2}
-
-# Define project names
-DESKTOP="WalletWasabi.Fluent.Desktop"
-COORDINATOR="WalletWasabi.Coordinator"
-DAEMON="WalletWasabi.Daemon"
-DAEMON_PROJECT="./$DAEMON/$DAEMON.csproj"
-DESKTOP_PROJECT="./$DESKTOP/$DESKTOP.csproj"
-COORDINATOR_PROJECT="./$COORDINATOR/$COORDINATOR.csproj"
-
-# Build directory
-ROOT_DIR=$(pwd)
+MODE="${1:-packages}"
+ROOT_DIR="$(pwd)"
 BUILD_DIR="$ROOT_DIR/build"
-
-# Executable name
-EXECUTABLE_NAME="wassabee"
-COORDINATOR_EXECUTABLE_NAME="wcoordinator"
-
-# Directory where to save the generated packages
 PACKAGES_DIR="$ROOT_DIR/packages"
-
-# Common name for all packages
-PACKAGE_FILE_NAME_PREFIX="Wasabi-$VERSION"
-
-if [[ "$RUNNER_OS" == "Windows" ]]; then
-  ZIP="7z.exe a"
-else
-  ZIP="zip -r"
-fi
-
-if [ "$1" = "wininstaller" ]; then
-  # Supported platforms
-  PLATFORMS=("win-x64")
-  CREATE_WINDOWS_INSTALLER="yes"
-  CREATE_DEBIAN_PACKAGE="no"
-  RELEASE_NOTE="no"
-  SIGN_PGP="no"
-  CREATE_OSX_DMG="no"
-  PACKAGE_COORDINATOR="no"
-elif [ "$1" = "debian" ]; then
-  # Supported platforms
-  PLATFORMS=("linux-x64" "linux-arm64")
-  CREATE_WINDOWS_INSTALLER="no"
-  CREATE_DEBIAN_PACKAGE="yes"
-  RELEASE_NOTE="no"
-  SIGN_PGP="no"
-  CREATE_OSX_DMG="no"
-  PACKAGE_COORDINATOR="yes"
-elif [ "$1" = "dmg" ]; then
-  PLATFORMS=("osx-x64" "osx-arm64")
-  CREATE_WINDOWS_INSTALLER="no"
-  CREATE_DEBIAN_PACKAGE="no"
-  RELEASE_NOTE="no"
-  SIGN_PGP="no"
-  CREATE_OSX_DMG="yes"
-  PACKAGE_COORDINATOR="no"
-elif [ "$1" = "releasenote" ]; then
-  PLATFORMS=()
-  CREATE_WINDOWS_INSTALLER="no"
-  CREATE_DEBIAN_PACKAGE="no"
-  RELEASE_NOTE="yes"
-  SIGN_PGP="no"
-  CREATE_OSX_DMG="no"
-  PACKAGE_COORDINATOR="no"
-elif [ "$1" = "gpgsign" ]; then
-  PLATFORMS=()
-  CREATE_WINDOWS_INSTALLER="no"
-  CREATE_DEBIAN_PACKAGE="no"
-  RELEASE_NOTE="no"
-  SIGN_PGP="yes"
-  CREATE_OSX_DMG="no"
-  PACKAGE_COORDINATOR="no"
-fi
-
-# Remove the build directory if it exists and recreate it
-# rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR"
-
-# Create packages directory (where all final packages are saved)
-#rm -rf "$PACKAGES_DIR" &&
-mkdir -p "$PACKAGES_DIR"
-
-#------------------------------------------------------------------------------------#
-# BUILD DESKTOP FOR ALL PLATFORMS                                                    #
-#------------------------------------------------------------------------------------#
-# Loop through each platform and build the project
-for PLATFORM in "${PLATFORMS[@]}"; do
-  # Define output directory for the platform
-  OUTPUT_DIR=$BUILD_DIR/$PLATFORM
-
-  if [[ "$PACKAGE_COORDINATOR" == "yes" ]]; then
-    PROJECTS_TO_BUILD=("$DAEMON_PROJECT" "$DESKTOP_PROJECT" "$COORDINATOR_PROJECT" )
-  else
-    PROJECTS_TO_BUILD=("$DAEMON_PROJECT" "$DESKTOP_PROJECT" )
-  fi
-
-  for PROJECT in "${PROJECTS_TO_BUILD[@]}"; do
-    # Build dotnet application
-    dotnet restore $PROJECT --locked-mode
-    dotnet publish $PROJECT \
-            --configuration Release \
-            --runtime $PLATFORM \
-            --force \
-            --output $OUTPUT_DIR \
-            --self-contained true \
-            --disable-parallel \
-            --no-cache \
-            --no-restore \
-            --property:SelfContained=true \
-            --property:VersionPrefix=$VERSION \
-            --property:DebugType=none \
-            --property:DebugSymbols=false \
-            --property:ErrorReport=none \
-            --property:DocumentationFile='' \
-            --property:Deterministic=true \
-            /clp:ErrorsOnly
-  done
-
-  # Determine executable file extension based on platform
-  EXE_FILE_EXTENSION=''
-  PLATFORM_PREFIX="${PLATFORM:0:3}"
-  if [[ "$PLATFORM_PREFIX" == "win" ]]; then
-    EXE_FILE_EXTENSION=".exe"
-  fi
-
-  # Rename executables as wassabee and wassabeed
-  mv $OUTPUT_DIR/{$DESKTOP,${EXECUTABLE_NAME}}$EXE_FILE_EXTENSION
-  mv $OUTPUT_DIR/{$DAEMON,${EXECUTABLE_NAME}d}$EXE_FILE_EXTENSION
-  if [[ "$PACKAGE_COORDINATOR" == "yes" ]]; then
-    mv $OUTPUT_DIR/{$COORDINATOR,${COORDINATOR_EXECUTABLE_NAME}}$EXE_FILE_EXTENSION
-  fi
-
-  # Remove bundled app binaries for other platforms
-  BUNDLED_APPS_DIR="$OUTPUT_DIR/BundledApps/Binaries"
-
-  if [[ "${PLATFORM_PREFIX}" == "osx" ]]; then
-    # For macOS, the bundled binaries are stored in "osx64" and it supports both x64 and arm64.
-    find $BUNDLED_APPS_DIR -mindepth 1 -maxdepth 1 -type d ! -name "osx64" -exec rm -rf {} +
-  else
-    # For other platforms, the bundled binaries are stored in a folder with the same name as the platform (e.g. linux-x64, linux-arm64 and win-x64).
-    find $BUNDLED_APPS_DIR -mindepth 1 -maxdepth 1 -type d ! -name "$PLATFORM" -exec rm -rf {} +
-  fi
-
-  # Hack! *.deps.json files contains this SHA516 that depends on the absolute path of
-  # the nuget packages. This means that these files are different in different computers
-  # and for different users. (End goal: reproducibility)
-  if [[ "${PLATFORM_PREFIX}" == "osx" ]]; then
-    sed -i '' 's/"sha512": "sha512-[^"]*"/"sha512": ""/g' "$OUTPUT_DIR/$DESKTOP.deps.json"
-  else
-    sed -i 's/"sha512": "sha512-[^"]*"/"sha512": ""/g' "$OUTPUT_DIR/$DESKTOP.deps.json"
-  fi
-
-  # Adjust platform name for macOS
-  ALTER_PLATFORM=$PLATFORM
-  if [[ "${PLATFORM_PREFIX}" == "osx" ]]; then
-    ALTER_PLATFORM="macOS${PLATFORM:3}"
-  fi
-
-  # Create compressed package files (.zip and .tar.gz)
-  PACKAGE_FILE_NAME=$PACKAGE_FILE_NAME_PREFIX-$ALTER_PLATFORM
-  if [[ "${PLATFORM_PREFIX}" == "lin" ]]; then
-     if [ -z "$SOURCE_DATE_EPOCH" ]; then
-       export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
-     fi
-
-     PARENT_DIR=$(dirname "$OUTPUT_DIR")
-     BASE_NAME=$(basename "$OUTPUT_DIR")
-
-     tar --sort=name \
-         --mtime="@${SOURCE_DATE_EPOCH}" \
-         --owner=0 \
-         --group=0 \
-         --numeric-owner \
-         --transform="s|^$BASE_NAME|WasabiWallet|" \
-         --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \
-         -pczf $PACKAGES_DIR/$PACKAGE_FILE_NAME.tar.gz \
-         -C "$PARENT_DIR" \
-         "$BASE_NAME"
-  fi
-
-  pushd "$OUTPUT_DIR" || exit
-  $ZIP "$PACKAGES_DIR/$PACKAGE_FILE_NAME.zip" .
-  popd || exit
-
-done
-
-
-#------------------------------------------------------------------------------------#
-# CREATE DEBIAN PACKAGE                                                              #
-#------------------------------------------------------------------------------------#
-if [ "$CREATE_DEBIAN_PACKAGE" = "yes" ]; then
-# Create .deb package
-
-for DEBIAN_ZIP_PACKAGE in $PACKAGES_DIR/Wasabi*linux*.zip; do
-
-# Combine paths
-CURRENT_ARCH=$(echo "$DEBIAN_ZIP_PACKAGE" | grep -o 'arm64\|x64')
-ZIP_PACKAGE=$(basename "$DEBIAN_ZIP_PACKAGE")
-
-DEBIAN_PACKAGE_DIR=$BUILD_DIR/$ZIP_PACKAGE/deb
-DEBIAN=$DEBIAN_PACKAGE_DIR/DEBIAN
-DEBIAN_USR=$DEBIAN_PACKAGE_DIR/usr
-DEBIAN_BIN=$DEBIAN_USR/local/bin
-
-DEBIAN_ARCH_NAME=""
-DEBIAN_FULL_PLATFORM_NAME="linux-x64"
-
-if [ "$CURRENT_ARCH" = "arm64" ]; then
-  DEBIAN_ARCH_NAME="-arm64"
-  DEBIAN_FULL_PLATFORM_NAME="linux-arm64"
-fi
-
-
-# Create necessary directories
-mkdir -p $DEBIAN
-mkdir -p $DEBIAN_BIN
-mkdir -p $DEBIAN_USR/share/{applications,icons/hicolor}
-
-# Copy icon files
-for ICON_FILE in ./Contrib/Assets/WasabiLogo*.png; do
-  SIZE=$(echo "$ICON_FILE" | grep -oP '\d+')
-  ICON_DIR="$DEBIAN_USR/share/icons/hicolor/${SIZE}x${SIZE}/apps"
-  mkdir -p "$ICON_DIR"
-  cp "$ICON_FILE" "$ICON_DIR/$EXECUTABLE_NAME.png"
-done
-
-# Calculate package size (in kilobytes)
-DEBIAN_PACKAGE_SIZE=$(du -s "${BUILD_DIR}/${DEBIAN_FULL_PLATFORM_NAME}" | cut -f1)
-
-# Create the control file content
-DEBIAN_CONTROL_FILE_CONTENT="Package: ${EXECUTABLE_NAME}
-Priority: optional
-Section: utils
-Maintainer: Wasabi Wallet Team
-Version: ${VERSION}
-Homepage: https://wasabiwallet.io
-Vcs-Git: git://github.com/WalletWasabi/WalletWasabi.git
-Vcs-Browser: https://github.com/WalletWasabi/WalletWasabi
-Architecture: amd64
-License: Open Source (MIT)
-Installed-Size: ${DEBIAN_PACKAGE_SIZE}
-Recommends: policykit-1
-Description: open-source, non-custodial, privacy focused Bitcoin wallet
-  Built-in Tor, coinjoin, payjoin and coin control features."
-
-echo "${DEBIAN_CONTROL_FILE_CONTENT}" > $DEBIAN/control
-
-# Post-installation script content
-USR_LOCAL_BIN_DIR="/usr/local/bin"
-INSTALL_DIR="${USR_LOCAL_BIN_DIR}/wasabiwallet"
-DEBIAN_POST_INST_SCRIPT_CONTENT="#!/usr/bin/env sh
-${INSTALL_DIR}/BundledApps/Binaries/${DEBIAN_FULL_PLATFORM_NAME}/hwi installudevrules
-exit 0"
-echo "${DEBIAN_POST_INST_SCRIPT_CONTENT}" > $DEBIAN/postinst
-chmod 0775 ${DEBIAN}/postinst
-
-# Create the desktop file content
-DEBIAN_DESKTOP_CONTENT="[Desktop Entry]
-Type=Application
-Name=Wasabi Wallet
-StartupWMClass=Wasabi Wallet
-GenericName=Bitcoin Wallet
-Comment=Privacy focused Bitcoin wallet.
-Icon=${EXECUTABLE_NAME}
-Terminal=false
-Exec=${EXECUTABLE_NAME}
-Categories=Office;Finance;
-Keywords=bitcoin;wallet;crypto;blockchain;wasabi;privacy;anon;awesome;"
-
-# Write the content to the file
-DEBIAN_DESKTOP="${DEBIAN_USR}/share/applications/${EXECUTABLE_NAME}.desktop"
-echo "${DEBIAN_DESKTOP_CONTENT}" > $DEBIAN_DESKTOP
-chmod 0644 $DEBIAN_DESKTOP
-
-# Copy the build to into the debian package structure
-cp -a "${BUILD_DIR}/${DEBIAN_FULL_PLATFORM_NAME}" $DEBIAN_BIN/wasabiwallet
-
-# Create wrapper scripts
-echo "#!/usr/bin/env sh
-${INSTALL_DIR}/${EXECUTABLE_NAME} \$@" > ${DEBIAN_BIN}/${EXECUTABLE_NAME}
-
-echo "#!/usr/bin/env sh
-${INSTALL_DIR}/${EXECUTABLE_NAME}d \$@" > ${DEBIAN_BIN}/${EXECUTABLE_NAME}d
-
-# Remove execution to everything except for executables and their wrapper scripts
-chmod 0755 ${DEBIAN_BIN}/wasabiwallet
-find ${DEBIAN_BIN}/wasabiwallet -type f -exec chmod 655 {} \;
-find ${DEBIAN_BIN}/wasabiwallet -type d -not -path ${DEBIAN_BIN}/wasabiwallet -exec chmod 755 {} \;
-chmod 0755 ${DEBIAN_BIN}/wasabiwallet/${EXECUTABLE_NAME}{,d}
-chmod 0755 ${DEBIAN_BIN}/${EXECUTABLE_NAME}{,d}
-
-if [[ "$PACKAGE_COORDINATOR" == "yes" ]]; then
-  # Create wrapper scripts
-  echo "#!/usr/bin/env sh
-  ${INSTALL_DIR}/${COORDINATOR_EXECUTABLE_NAME} \$@" > ${DEBIAN_BIN}/${COORDINATOR_EXECUTABLE_NAME}
-
-  # Remove execution to everything except for executables and their wrapper scripts
-  chmod 0755 ${DEBIAN_BIN}/wasabiwallet/${COORDINATOR_EXECUTABLE_NAME}
-  chmod 0755 ${DEBIAN_BIN}/${COORDINATOR_EXECUTABLE_NAME}
-
-fi
-
-# Build the .deb package
-dpkg-deb -Zxz --build "${DEBIAN_PACKAGE_DIR}" "$PACKAGES_DIR/${PACKAGE_FILE_NAME_PREFIX}${DEBIAN_ARCH_NAME}.deb"
-
-done
-fi
-
-#------------------------------------------------------------------------------------#
-# CREATE WINDOWS INSTALLER                                                           #
-#------------------------------------------------------------------------------------#
-if [ "$CREATE_WINDOWS_INSTALLER" = "yes" ]; then
-WIX_BIN_DIR="$WIX/bin"
-WINDOWS_INSTALLER_DIR="WalletWasabi.WindowsInstaller"
-CANDLE_EXE="$WIX_BIN_DIR/"candle
-LIGHT_EXE="$WIX_BIN_DIR"/light
-HEAT_EXE="$WIX_BIN_DIR"/heat
-BUILD_INSTALLER_DIR="$BUILD_DIR/win-installer"
-WINDOWS_PACKAGE_BUILD_DIR="$BUILD_DIR"/win-x64
-
-mkdir -p "$BUILD_INSTALLER_DIR"
-"$HEAT_EXE" dir $WINDOWS_PACKAGE_BUILD_DIR \
-    -o $WINDOWS_INSTALLER_DIR/ComponentsGenerated.wxs \
-    -cg PublishedComponents \
-    -pog Binaries \
-    -dr INSTALLFOLDER \
-    -srd -scom -gg -sfrag -sreg
-
-# Compile the .wxs file to .wixobj
-"$CANDLE_EXE" \
-    $WINDOWS_INSTALLER_DIR/*.wxs \
-    -arch x64 \
-    -dBuildVersion=$VERSION \
-    -dDesktopProjectDir=$DESKTOP \
-
-# Link the .wixobj file to create the .msi installer
-"$LIGHT_EXE" \
-    *.wixobj \
-    -loc $WINDOWS_INSTALLER_DIR/Common.wxl \
-    -ext "$WIX_BIN_DIR/WixUIExtension.dll" \
-    -ext "$WIX_BIN_DIR/WixUtilExtension.dll" \
-    -b $WINDOWS_PACKAGE_BUILD_DIR \
-    -out $PACKAGES_DIR/$PACKAGE_FILE_NAME_PREFIX.msi
-
-# Remove unwanted file
-rm $PACKAGES_DIR/*.wixpdb
-
-  # Define paths (using your existing variables)
-  SIGNTOOL="C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/signtool.exe"
-
-  METADATA=metadata.json
-  echo '
-  {
-    "Endpoint": "https://eus.codesigning.azure.net",
-    "CodeSigningAccountName": "WasabiWallet",
-    "CertificateProfileName": "WasabiWallet"
-  }' > $METADATA
-
-  DLIB="$APPDATA/../Local/Microsoft/MicrosoftTrustedSigningClientTools/Azure.CodeSigning.Dlib.dll"
-  "$SIGNTOOL" Sign -v -debug -tr 'http://timestamp.digicert.com' -d "Wasabi Wallet" -fd SHA256 -td SHA256 -dlib "$DLIB" -dmdf "$METADATA"  "$PACKAGES_DIR/$PACKAGE_FILE_NAME_PREFIX.msi"
-fi
-
-#------------------------------------------------------------------------------------#
-# CREATE OSX .DMG                                                                    #
-#------------------------------------------------------------------------------------#
-if [ "$CREATE_OSX_DMG" = "yes" ]; then
-
-for OSX_ZIP_PACKAGE in $PACKAGES_DIR/Wasabi*macOS*.zip; do
-# Combine paths
-CURRENT_ARCH=$(echo "$OSX_ZIP_PACKAGE" | grep -o 'arm64\|x64')
-ZIP_PACKAGE=$(basename "$OSX_ZIP_PACKAGE")
-OSX_BUILD_DIR="$BUILD_DIR/$ZIP_PACKAGE/osx"
-DMG_PATH="$OSX_BUILD_DIR/dmg"
-APP_NAME="Wasabi Wallet.app"
-APP_PATH="$DMG_PATH/$APP_NAME"
-APP_CONTENTS_PATH="$APP_PATH/Contents"
-APP_MACOS_PATH="$APP_CONTENTS_PATH/MacOS"
-APP_RES_PATH="$APP_CONTENTS_PATH/Resources"
-INFO_FILE_PATH="$APP_CONTENTS_PATH/Info.plist"
-APP_NOTARIZE_FILE_PATH="$OSX_ZIP_PACKAGE"
-
-mkdir -p "$APP_RES_PATH"
-
-unzip "$PACKAGES_DIR/$PACKAGE_FILE_NAME_PREFIX-macOS-$CURRENT_ARCH.zip" -d "$APP_MACOS_PATH"
-
-# Convert x64 to x86_64 for LSArchitecturePriority
-if [ "$CURRENT_ARCH" = "x64" ]; then
-    PLIST_ARCHITECTURE="x86_64"
-else
-    PLIST_ARCHITECTURE="$CURRENT_ARCH"
-fi
-
-echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>LSArchitecturePriority</key>
-	<array>
-		<string>$PLIST_ARCHITECTURE</string>
-	</array>
-	<key>CFBundleIconFile</key>
-	<string>WasabiLogo.icns</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>$SHORT_VERSION</string>
-	<key>CFBundleVersion</key>
-	<string>$SHORT_VERSION</string>
-	<key>CFBundleExecutable</key>
-	<string>wassabee</string>
-	<key>CFBundleName</key>
-	<string>Wasabi Wallet</string>
-	<key>CFBundleIdentifier</key>
-	<string>zksnacks.wasabiwallet</string>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-	<key>NSAppleScriptEnabled</key>
-	<true/>
-	<key>LSApplicationCategoryType</key>
-	<string>public.app-category.finance</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-</dict>
-</plist>" > "$INFO_FILE_PATH"
-
-mkdir -p $DMG_PATH/.fseventsd/
-echo 'H4sIAAAAAAAAEzIK9nHZ4u1R/ZkBCN6vbgRRDC4MDIxMDFDQt6oRxoSL6bkExweX5BelMhhAtYQy
-NDBsY4TKhuXnlOameibn5+llJucVM2yHGhHK3MCwFaYoKTE5O70ovzQvhaEKKt8AtHcDpry+T356
-fnx5ZklGfElqRUl8cW5iTo5eQV46Qw9UoyBjA8NGqEbHgoKczOTEksx8oM0ToAoYGRwYNkEVAAAA
-AP//AwDwiBgo8wAAAA==' | base64 -d > "$DMG_PATH/.fseventsd/000000000081abf0"
-echo 'H4sIAAAAAAAAEzIM9nGpVFt51IqBgUEvrTi1LDWvpDhFvzhHNzk/tyCxhOH76kYGKGBk+IHgKAIA
-AAD//wMAmAcQvToAAAA=' | base64 -d > "$DMG_PATH/.fseventsd/000000000081abf1"
-echo '5D4F6D41-8967-4D1E-9953-35A263D5EFDF' > "$DMG_PATH/.fseventsd/fseventsd-uuid"
-
-# Give read/write to owner, read to group and others and, remove write to group and others
-chmod -R u+rwX,go+rX,go-w "$APP_PATH"
-
-ENTITLEMENTS_PATH="$OSX_BUILD_DIR/entitlements.plist"
-echo '
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>com.apple.security.cs.allow-jit</key>
-	<true/>
-	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-	<true/>
-	<key>com.apple.security.cs.allow-dyld-environment-variables</key>
-	<true/>
-	<key>com.apple.security.cs.disable-library-validation</key>
-	<true/>
-</dict>
-</plist>' > "$ENTITLEMENTS_PATH"
-
-#Add logo
-cp ./Contrib/Assets/WasabiLogo.icns "$APP_RES_PATH/WasabiLogo.icns"
-cp -r ./Contrib/Assets/.background "$DMG_PATH/.background"
-cp ./Contrib/Assets/.DS_Store.dat "$DMG_PATH/.DS_Store"
-
-# Separate files in wasabi executables, non-wasabi executables (tor, bitcoin and so on) and the rest
-NON_EXECUTABLES=()
-OTHER_EXECUTABLES=()
-WASSABEE_EXECUTABLE=()
-WASSABEED_EXECUTABLE=()
-while IFS= read -r -d '' file; do
-  # Check if the file is a Mach-O executable
-  if file "$file" | grep -q 'Mach-O.* executable'; then
-    case "$(basename "$file")" in
-      "wassabee")
-        WASSABEE_EXECUTABLE+=("$file")
-        ;;
-      "wassabeed")
-        WASSABEED_EXECUTABLE+=("$file")
-        ;;
-      *)
-        OTHER_EXECUTABLES+=("$file")
-        ;;
-    esac
-  else
-    NON_EXECUTABLES+=("$file")
-  fi
-done < <(find "$APP_PATH" -type f -print0)
-
-EXECUTABLES=("${OTHER_EXECUTABLES[@]}" "${WASSABEED_EXECUTABLE[@]}" "${WASSABEE_EXECUTABLE[@]}")
-chmod u+x "${EXECUTABLES[@]}"
-
-CERT_PATH="MacCertificate.cer"
-P12_PATH="MacP12.p12"
-PROFILE_NAME="WasabiNotarize"
-
-KEYCHAIN_NAME="build.keychain-db"
-KEYCHAIN_PATH="$HOME/Library/Keychains/$KEYCHAIN_NAME"
-KEYCHAIN_PASSWORD="hello123"
-
-# Create temporary keychain
-security create-keychain -p ${KEYCHAIN_PASSWORD} ${KEYCHAIN_NAME}
-security set-keychain-settings ${KEYCHAIN_NAME}
-security unlock-keychain -p ${KEYCHAIN_PASSWORD} ${KEYCHAIN_NAME}
-security list-keychains -s ${KEYCHAIN_NAME}
-
-# Import the certificate and private key into the temporary keychain
-security import ${CERT_PATH} -k ${KEYCHAIN_PATH} -T /usr/bin/codesign
-security import ${P12_PATH} -k ${KEYCHAIN_PATH} -P ${MAC_P12_PASSWORD} -T /usr/bin/codesign
-
-# Grant access to the certificate and private key without a prompt
-security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-# Create notary profile
-xcrun notarytool store-credentials ${PROFILE_NAME} --apple-id ${MAC_APPLEID} --team-id ${MAC_TEAMID} --password ${MAC_APPLEPSSWD}
-
-# Signing all files in order (wassabee at the end)
-SIGN_ARGUMENTS="--sign ${MAC_TEAMID} --verbose --force --options runtime --timestamp --entitlements $ENTITLEMENTS_PATH"
-ALL_FILES=("${NON_EXECUTABLES[@]}" "${EXECUTABLES[@]}")
-for file in "${ALL_FILES[@]}"; do
-  codesign $SIGN_ARGUMENTS "$file"
-done
-
-if ! codesign -dv --verbose=4 "$APP_PATH" 2>&1 | grep -q 'Authority=Developer ID Application: zkSNACKs Ltd.'; then
-    echo "App signing verification failed"
-    security delete-keychain ${KEYCHAIN_NAME}
-    exit 1
-fi
-
-# Notarization
-ditto -c -k --keepParent "$APP_PATH" "$APP_NOTARIZE_FILE_PATH"
-
-xcrun notarytool submit --wait --apple-id "${MAC_APPLEID}" -p "WasabiNotarize" "$APP_NOTARIZE_FILE_PATH"
-
-# Stapling
-spctl -a -t exec -vv "$APP_PATH"
-
-# Verification
-if [ $? -ne 0 ]; then
-  echo "App stapling verification failed"
-  security delete-keychain ${KEYCHAIN_NAME}
-  exit 1
-fi
-
-DMG_ARCH_NAME=""
-if [ "$CURRENT_ARCH" = "arm64" ]; then
-  DMG_ARCH_NAME="-arm64"
-fi
-
-DMG_UNZIPPED_FILE_PATH="$OSX_BUILD_DIR/Wasabi.tmp.dmg"
-DMG_FILE_PATH="$DMG_PATH/$PACKAGE_FILE_NAME_PREFIX$DMG_ARCH_NAME.dmg"
-
-# Create the dmg
-ln -s /Applications "$DMG_PATH"
-hdiutil create "$DMG_UNZIPPED_FILE_PATH" -ov -volname "Wasabi Wallet" -fs HFS+ -srcfolder "$DMG_PATH"
-hdiutil convert "$DMG_UNZIPPED_FILE_PATH" -format UDZO -o "$DMG_FILE_PATH"
-
-codesign $SIGN_ARGUMENTS "$DMG_FILE_PATH"
-
-if ! codesign -dv --verbose=4 "$DMG_FILE_PATH" 2>&1 | grep -q 'Authority=Developer ID Application: zkSNACKs Ltd.'; then
-    echo "DMG signing verification failed"
-    security delete-keychain ${KEYCHAIN_NAME}
-    exit 1
-fi
-
-# Notarization and verification
-if ! xcrun notarytool submit --wait --apple-id "${MAC_APPLEID}" -p "WasabiNotarize" "$DMG_FILE_PATH" | grep -q "Accepted"; then
-    echo "DMG notarization failed"
-    security delete-keychain ${KEYCHAIN_NAME}
-    exit 1
-fi
-
-# Stapling
-xcrun stapler staple "$DMG_FILE_PATH"
-
-# Verify stapling
-xcrun stapler validate "$DMG_FILE_PATH"
-
-if [ $? -ne 0 ]; then
-    echo "DMG stapling verification failed"
-    security delete-keychain ${KEYCHAIN_NAME}
-    exit 1
-fi
-
-security delete-keychain ${KEYCHAIN_NAME}
-
-mv "$DMG_FILE_PATH" "$PACKAGES_DIR"
-
-done
-fi
-
-#------------------------------------------------------------------------------------#
-# SIGN EVERYTHING                                                                    #
-#------------------------------------------------------------------------------------#
-if [ "$SIGN_PGP" = "yes" ]; then
-pushd "$PACKAGES_DIR" || exit
-for FILE in ./*; do
-  sha256sum "$FILE" >> SHA256SUMS
-  gpg --armor --detach-sign --output "$FILE.asc" "$FILE"
-done
-gpg --sign --digest-algo sha256 -a --clearsign --armor --output SHA256SUMS.asc SHA256SUMS
-
-echo "
-#r \"nuget:NBitcoin\"
-open System
-open System.IO
-open System.Security.Cryptography
-open NBitcoin
-
-let args = Environment.GetCommandLineArgs()
-let wasabiPrivateKey = Key.Parse(args[3], Network.Main)
-args[2]
-|> File.ReadAllBytes
-|> SHA256.HashData
-|> uint256
-|> wasabiPrivateKey.Sign
-|> _.ToDER()
-|> Convert.ToBase64String
-|> Console.WriteLine
-" > signer.fsx
-dotnet fsi signer.fsx SHA256SUMS.asc $SIGNING_WASABI_KEY > SHA256SUMS.wasabisig
-rm signer.fsx
-
-popd || exit
-fi
-
-if [ "$RELEASE_NOTE" = "yes" ]; then
+PROJECT_DIR="$ROOT_DIR/WalletWasabi.Daemon"
+PROJECT_FILE="$PROJECT_DIR/WalletWasabi.Daemon.csproj"
+PROJECT_NAME="WalletWasabi.Daemon"
+EXECUTABLE_NAME="abw-daemon"
+PACKAGE_NAME="abw-daemon"
+PLATFORMS=("win-x64" "linux-x64" "linux-arm64" "osx-x64" "osx-arm64")
+LINUX_PLATFORMS=("linux-x64" "linux-arm64")
+
+LATEST_TAG="$(git describe --tags --abbrev=0)"
+VERSION="${LATEST_TAG#v}"
+PACKAGE_PREFIX="${PACKAGE_NAME}-${VERSION}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./Contrib/release.sh [packages|debian|releasenote|gpgsign]
+
+Modes:
+  packages    Build daemon packages for all supported runtimes.
+  debian      Build daemon packages and Debian archives for Linux runtimes.
+  releasenote Render the release template with the current tag version.
+  gpgsign     Sign every file already present in ./packages.
+EOF
+}
+
+render_release_note() {
   sed -e "s/{version}/$VERSION/g" \
       -e "/{highlights}/r ./WalletWasabi/Announcements/ReleaseHighlights.md" \
       -e "/{highlights}/d" \
       ./Contrib/ReleaseTemplate.md
-fi
+}
 
-# Unstash changes if there were any
-if git stash list | head -1 | grep -q "$STASH_MESSAGE"; then
-  git stash pop
-  echo "Changes unstashed."
-fi
+normalize_platform_name() {
+  local platform="$1"
+  if [[ "$platform" == osx-* ]]; then
+    echo "macOS-${platform#osx-}"
+  else
+    echo "$platform"
+  fi
+}
+
+rename_published_binary() {
+  local output_dir="$1"
+  local platform="$2"
+  local extension=""
+  if [[ "$platform" == win-* ]]; then
+    extension=".exe"
+  fi
+
+  if [[ -f "$output_dir/${PROJECT_NAME}${extension}" ]]; then
+    mv "$output_dir/${PROJECT_NAME}${extension}" "$output_dir/${EXECUTABLE_NAME}${extension}"
+  fi
+}
+
+build_runtime() {
+  local platform="$1"
+  local output_dir="$BUILD_DIR/$platform"
+
+  rm -rf "$output_dir"
+  mkdir -p "$output_dir"
+
+  dotnet restore "$PROJECT_FILE" --locked-mode
+  dotnet publish "$PROJECT_FILE" \
+    --configuration Release \
+    --runtime "$platform" \
+    --output "$output_dir" \
+    --self-contained true \
+    --disable-parallel \
+    --no-restore \
+    --property:VersionPrefix="$VERSION" \
+    --property:DebugType=none \
+    --property:DebugSymbols=false \
+    --property:DocumentationFile='' \
+    /clp:ErrorsOnly
+
+  rename_published_binary "$output_dir" "$platform"
+}
+
+package_runtime() {
+  local platform="$1"
+  local output_dir="$BUILD_DIR/$platform"
+  local package_platform
+  package_platform="$(normalize_platform_name "$platform")"
+  local package_base="$PACKAGE_PREFIX-$package_platform"
+
+  pushd "$output_dir" >/dev/null
+  zip -rq "$PACKAGES_DIR/$package_base.zip" .
+  popd >/dev/null
+
+  if [[ "$platform" == linux-* ]]; then
+    local source_date_epoch="${SOURCE_DATE_EPOCH:-$(git log -1 --pretty=%ct)}"
+    tar --sort=name \
+        --mtime="@${source_date_epoch}" \
+        --owner=0 \
+        --group=0 \
+        --numeric-owner \
+        --transform="s|^$(basename "$output_dir")|$EXECUTABLE_NAME|" \
+        --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \
+        -pczf "$PACKAGES_DIR/$package_base.tar.gz" \
+        -C "$BUILD_DIR" \
+        "$(basename "$output_dir")"
+  fi
+}
+
+package_debian() {
+  local platform="$1"
+  local arch_suffix=""
+  local arch_name="amd64"
+  local source_dir="$BUILD_DIR/$platform"
+
+  if [[ "$platform" == "linux-arm64" ]]; then
+    arch_suffix="-arm64"
+    arch_name="arm64"
+  fi
+
+  local package_dir="$BUILD_DIR/deb-$platform"
+  local package_root="$package_dir/usr/local/lib/$EXECUTABLE_NAME"
+  local bin_dir="$package_dir/usr/local/bin"
+  local debian_dir="$package_dir/DEBIAN"
+
+  rm -rf "$package_dir"
+  mkdir -p "$package_root" "$bin_dir" "$debian_dir"
+
+  cp -a "$source_dir/." "$package_root/"
+
+  cat > "$bin_dir/$EXECUTABLE_NAME" <<EOF
+#!/usr/bin/env sh
+exec /usr/local/lib/$EXECUTABLE_NAME/$EXECUTABLE_NAME "\$@"
+EOF
+  chmod 0755 "$bin_dir/$EXECUTABLE_NAME"
+
+  local installed_size
+  installed_size="$(du -s "$package_dir" | cut -f1)"
+  cat > "$debian_dir/control" <<EOF
+Package: $PACKAGE_NAME
+Priority: optional
+Section: utils
+Maintainer: abw contributors
+Version: $VERSION
+Homepage: https://github.com/nopara73/abw
+Vcs-Git: https://github.com/nopara73/abw.git
+Vcs-Browser: https://github.com/nopara73/abw
+Architecture: $arch_name
+License: MIT
+Installed-Size: $installed_size
+Description: bitcoin wallet for agents
+ open-source. non-custodial. privacy-focused.
+EOF
+
+  dpkg-deb -Zxz --build "$package_dir" "$PACKAGES_DIR/${PACKAGE_PREFIX}${arch_suffix}.deb"
+}
+
+sign_packages() {
+  pushd "$PACKAGES_DIR" >/dev/null
+  rm -f SHA256SUMS SHA256SUMS.asc
+  for file in ./*; do
+    [[ -f "$file" ]] || continue
+    sha256sum "$file" >> SHA256SUMS
+    gpg --armor --detach-sign --output "$file.asc" "$file"
+  done
+  gpg --sign --digest-algo sha256 -a --clearsign --armor --output SHA256SUMS.asc SHA256SUMS
+  popd >/dev/null
+}
+
+build_packages() {
+  mkdir -p "$BUILD_DIR" "$PACKAGES_DIR"
+  for platform in "${PLATFORMS[@]}"; do
+    build_runtime "$platform"
+    package_runtime "$platform"
+  done
+}
+
+case "$MODE" in
+  packages)
+    build_packages
+    ;;
+  debian)
+    build_packages
+    for platform in "${LINUX_PLATFORMS[@]}"; do
+      package_debian "$platform"
+    done
+    ;;
+  releasenote)
+    render_release_note
+    ;;
+  gpgsign)
+    sign_packages
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac
