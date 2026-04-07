@@ -17,6 +17,7 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
+		<PackageReference Include="DynamicData" />
 		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
 		<PackageReference Include="Microsoft.CodeAnalysis.Common" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
@@ -28,14 +29,29 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 		</PackageReference>
 		<DotNetCliToolReference Include="dotnet-xunit" Version="2.3.1" />
-		<PackageReference Include="Avalonia.Headless.XUnit" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\WalletWasabi.Coordinator\WalletWasabi.Coordinator.csproj" />
-		<ProjectReference Include="..\WalletWasabi.Fluent.Generators\WalletWasabi.Fluent.Generators.csproj" />
-		<ProjectReference Include="..\WalletWasabi.Fluent\WalletWasabi.Fluent.csproj" />
+		<ProjectReference Include="..\WalletWasabi.Client\WalletWasabi.Client.csproj" />
 		<ProjectReference Include="..\WalletWasabi\WalletWasabi.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Remove="Helpers\LinuxStartupTestHelper.cs" />
+		<Compile Remove="UnitTests\Extensions\TimeSpanMixinTests.cs" />
+		<Compile Remove="UnitTests\Fluent\**\*.cs" />
+		<Compile Remove="UnitTests\Fluent.Generators\**\*.cs" />
+		<Compile Remove="UnitTests\Helpers\AmountExtensionsTests.cs" />
+		<Compile Remove="UnitTests\Helpers\FormattingTests.cs" />
+		<Compile Remove="UnitTests\QrDecode\QrCodeDecodingTests.cs" />
+		<Compile Remove="UnitTests\StartWasabiOnSystemStartupTests.cs" />
+		<Compile Remove="UnitTests\StateMachineTests.cs" />
+		<Compile Remove="UnitTests\Transactions\TransactionProcessorTests.cs" />
+		<Compile Remove="UnitTests\UserInterfaceTest\**\*.cs" />
+		<Compile Remove="UnitTests\ViewModels\**\*.cs" />
+		<Compile Remove="UnitTests\WabiSabi\Client\ArenaClientTests.cs" />
+		<Compile Remove="UnitTests\WabiSabi\Client\BobClientTests.cs" />
+		<Compile Remove="UnitTests\WabiSabi\Integration\**\*.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

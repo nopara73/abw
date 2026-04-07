@@ -27,8 +27,10 @@
           runtimeDeps = with pkgs; [
              pkgs.openssl pkgs.zlib
              tor hwi bitcoind ];
-          # Tests still depend on the removed GUI/coordinator projects.
-          doCheck = false;
+          # Run the remaining daemon/core-focused unit tests.
+          doCheck = true;
+          testProjectFile = "WalletWasabi.Tests/WalletWasabi.Tests.csproj";
+          dotnetTestFlags = ["--filter \"FullyQualifiedName~UnitTests&FullyQualifiedName!~BitcoinCore&FullyQualifiedName!~ReleaseDownloaderTests\"" "--logger \"console\""];
 
           # wrap manually, because we want not so ugly executable names
           dontDotnetFixup = true;
